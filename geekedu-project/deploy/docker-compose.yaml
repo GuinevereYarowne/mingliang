@@ -1,0 +1,84 @@
+
+
+version: '3.8'
+services:
+  # MySQL数据库（无改动）
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: geekedu
+    volumes:
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+    networks:
+      - geekedu-network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$${MYSQL_ROOT_PASSWORD} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Logic Server（gRPC）- 关键修改这里
+  logic-server:
+    # 核心改动：构建上下文指向项目根目录（../），再指定子目录的Dockerfile
+    build:
+      context: ../          # 构建时能访问根目录的go.mod、common、proto
+      dockerfile: logic-server/Dockerfile  # 告诉Docker用logic-server目录下的Dockerfile
+    environment:
+      # OSS配置（从环境变量读取，不要硬编码）
+      OSS_ACCESS_KEY: ${OSS_ACCESS_KEY}
+      OSS_SECRET_KEY: ${OSS_SECRET_KEY}
+      OSS_ENDPOINT: "oss-cn-hangzhou.aliyuncs.com"
+      OSS_BUCKET: ${OSS_BUCKET}
+      # MySQL配置
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_DATABASE: geekedu
+      # JWT配置
+      JWT_SECRET: "geekedu-secret-123"
+      JWT_EXPIRE: 86400
+    depends_on:
+      - mysql
+    networks:
+      - geekedu-network
+    restart: always
+
+  # Web Server（Gin）- 关键修改这里
+  web-server:
+    # 同样：构建上下文指向根目录，指定web-server的Dockerfile
+    build:
+      context: ../          # 构建时能访问根目录的go.mod、common、proto
+      dockerfile: web-server/Dockerfile  # 用web-server目录下的Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - logic-server
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v1/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - geekedu-network
+    restart: always
+
+  # 前端（Nginx）- 无改动（和Go mod无关）
+  frontend:
+    build: ../frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - web-server
+    networks:
+      - geekedu-network
+    restart: always
+
+# 自定义网络（无改动）
+networks:
+  geekedu-network:
+    driver: bridge

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Todo任务管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "微软雅黑", sans-serif;
+        }
+        body {
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .todo-container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .add-task {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .add-task input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px 0 0 4px;
+            font-size: 16px;
+        }
+        .add-task button {
+            padding: 10px 15px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+        }
+        .tabs {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .tabs .tab-group button {
+            padding: 8px 12px;
+            margin-right: 5px;
+            border: none;
+            background: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .tabs .tab-group button.active {
+            background: #007bff;
+            color: #fff;
+        }
+        .tabs .clear-btn {
+            padding: 8px 12px;
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .todo-list {
+            margin-top: 20px;
+        }
+        .todo-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            position: relative;
+        }
+        .todo-item input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+        }
+        .todo-item .title {
+            flex: 1;
+            font-size: 16px;
+        }
+        .todo-item .actions {
+            color: #888;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+        .todo-item.done .title {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            right: 0;
+            top: 30px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 100;
+        }
+        .dropdown-menu button {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            text-align: left;
+            cursor: pointer;
+        }
+        .dropdown-menu button:hover {
+            background: #f5f5f5;
+        }
+        .edit-input {
+            flex: 1;
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="todo-container">
+        <!-- 添加任务表单 -->
+        <form class="add-task" action="/add" method="post">
+            <input type="text" name="title" placeholder="添加任务" required>
+            <button type="submit">添加</button>
+        </form>
+
+        <!-- 标签栏（调整布局） -->
+        <div class="tabs">
+            <div class="tab-group">
+                <button class="tab-btn active" data-filter="all">所有</button>
+                <button class="tab-btn" data-filter="active">进行中</button>
+                <button class="tab-btn" data-filter="completed">已完成</button>
+            </div>
+            <form action="/clear" method="post" style="display: inline;">
+                <button type="submit" class="clear-btn">清空</button>
+            </form>
+        </div>
+
+        <!-- 任务列表（新增下拉菜单） -->
+        <div class="todo-list">
+            {{ range .todos }}
+            <div class="todo-item {{ if .Done }}done{{ end }}" data-status="{{ if .Done }}completed{{ else }}active{{ end }}">
+                <!-- 状态切换表单 -->
+                <form action="/toggle/{{ .ID }}" method="post" style="display: flex; align-items: center; width: 100%;">
+                    <input type="checkbox" name="done" onchange="this.form.submit()" {{ if .Done }}checked{{ end }}>
+                    
+                    <!-- 标题区域（支持切换为编辑输入框） -->
+                    <div class="title-area">
+                        <span class="title">{{ .Title }}</span>
+                        <!-- 编辑表单（默认隐藏） -->
+                        <form class="edit-form" action="/edit/{{ .ID }}" method="post" style="display: none; align-items: center; width: 100%;">
+                            <input type="text" name="newTitle" class="edit-input" value="{{ .Title }}" required>
+                            <button type="submit" style="margin-left: 5px; padding: 4px 8px; background: #007bff; color: #fff; border: none; border-radius: 4px; font-size: 12px;">保存</button>
+                        </form>
+                    </div>
+                    
+                    <!-- 操作按钮 + 下拉菜单 -->
+                    <span class="actions" onclick="toggleDropdown(this, {{ .ID }})">...</span>
+                    <div class="dropdown-menu" id="menu-{{ .ID }}">
+                        <button onclick="showEditForm(this, {{ .ID }})">编辑</button>
+                        <form action="/delete/{{ .ID }}" method="post" style="margin: 0;">
+                            <button type="submit" onclick="return confirm('确定删除吗？')">删除</button>
+                        </form>
+                    </div>
+                </form>
+            </div>
+            {{ else }}
+            <div class="empty">暂无任务</div>
+            {{ end }}
+        </div>
+    </div>
+
+    <script>
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const todoItems = document.querySelectorAll('.todo-item');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const filter = btn.dataset.filter;
+                todoItems.forEach(item => {
+                    item.style.display = (filter === 'all' || item.dataset.status === filter) ? 'flex' : 'none';
+                });
+            });
+        });
+
+        function toggleDropdown(elem, todoId) {
+            document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                if (menu.id !== `menu-${todoId}`) {
+                    menu.style.display = 'none';
+                }
+            });
+            const menu = document.getElementById(`menu-${todoId}`);
+            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('actions') && !e.target.closest('.dropdown-menu')) {
+                document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                    menu.style.display = 'none';
+                });
+            }
+        });
+
+        function showEditForm(elem, todoId) {
+            document.getElementById(`menu-${todoId}`).style.display = 'none';
+            const titleArea = elem.closest('.todo-item').querySelector('.title-area');
+            titleArea.querySelector('.title').style.display = 'none';
+            titleArea.querySelector('.edit-form').style.display = 'flex';
+            titleArea.querySelector('.edit-input').focus();
+        }
+    </script>
+</body>
+</html>

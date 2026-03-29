@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package geekedu;
+option go_package = "./;proto";
+
+// 通用响应结构
+message Response {
+  int32 code = 1;
+  string msg = 2;
+  bytes data = 3; // 通用数据字段，后续可序列化JSON
+}
+
+// 用户注册请求
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
+  string role = 3; // student/admin
+}
+
+// 用户登录请求
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+// 登录响应（返回Token）
+message LoginResponse {
+  string token = 1;
+}
+
+// 课程列表请求
+message CourseListRequest {}
+
+// 发布课程请求
+message CreateCourseRequest {
+  string title = 1;
+  string price = 2; // 字符串避免精度问题
+  string intro = 3;
+  bytes cover_file = 4; // 封面文件二进制（或视频文件）
+  int64 created_by = 5; // 创建者ID（或课程ID）
+}
+
+// 购买课程请求
+message CreateOrderRequest {
+  int64 user_id = 1;
+  int64 course_id = 2;
+}
+
+// 获取播放链接请求
+message GetPlayUrlRequest {
+  int64 user_id = 1;
+  int64 video_id = 2;
+}
+
+// 获取播放链接响应
+message GetPlayUrlResponse {
+  string play_url = 1;
+}
+
+// 定义gRPC服务
+service GeekEduService {
+  // 用户相关
+  rpc Register(RegisterRequest) returns (Response);
+  rpc Login(LoginRequest) returns (Response);
+  
+  // 课程相关
+  rpc GetCourseList(CourseListRequest) returns (Response);
+  rpc CreateCourse(CreateCourseRequest) returns (Response);
+  rpc UploadVideo(stream CreateCourseRequest) returns (Response); // 保持 stream 形式
+  rpc CreateOrder(CreateOrderRequest) returns (Response);
+  rpc GetPlayUrl(GetPlayUrlRequest) returns (Response);
+}
